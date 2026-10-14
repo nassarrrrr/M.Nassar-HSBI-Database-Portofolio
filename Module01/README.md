@@ -25,6 +25,13 @@
 
 **What I want from this class:** to learn how to store data and get answers out of it with SQL, starting from zero.
 
+## My partners are
+-Mohamed Elsayed:https://github.com/mbahnasy426/Mohamed-Hamed
+
+-Adam hassan:
+
+
+
 ## Reflection 1
 
 [Reflection 1](https://github.com/nassarrrrr/M.Nassar-HSBI-Database-Portofolio/blob/main/Reflections/ref01.md)
