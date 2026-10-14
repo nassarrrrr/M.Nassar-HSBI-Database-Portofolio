@@ -8,10 +8,11 @@
 -Take a first LLM-generated query, run it, and begin the habit that defines this course: verify before you trust.
 ## Task Inspirations
 
-- Inspiration 1
-- Inspiration 2
+a small app that tracks something I care about and answers questions about it with SQL]
 
 ## Task Personal Profile
+
+zero experience about database
 
 
 
