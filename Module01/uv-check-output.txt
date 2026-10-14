@@ -1,0 +1,8 @@
+uv-managed Python: /Users/mac/M.Nassar-HSBI-Database-Portofolio/.venv/bin/python
+python             3.14.8
+sqlite (stdlib)    3.53.1
+duckdb             1.5.6
+datasette          0.65.5
+sqlite-utils       4.2.1
+pydantic           2.14.1
+sqlalchemy         2.1.4
