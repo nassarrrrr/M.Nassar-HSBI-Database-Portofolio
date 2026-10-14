@@ -1,41 +1,30 @@
-# Module-1
+# Module 1 — Introduction & Local-First Foundations
 
--Explain how this class works — the CBL/PBL philosophy, the portfolio-based project work assessment, and the "moving bar" of a first-time course.
--Set up your personal GitHub portfolio from the course template, with a clean first commit and a .gitignore that keeps databases and secrets out of Git.
--Set up the entire toolchain reproducibly with uv — one fixed Python plus SQLite, DuckDB, Datasette, and more — on Windows, macOS, or Linux, and verify it.
--Explain — with a measurement, not a slide — the difference between an embedded database and a client/server database, and why most local apps should not run a server.
--Load real rows into SQLite and query them from Python using bound parameters.
--Take a first LLM-generated query, run it, and begin the habit that defines this course: verify before you trust.
+## Learning goals
+
+- Explain how this class works: the CBL/PBL philosophy, the portfolio-based project work assessment, and the "moving bar" of a first-time course.
+- Set up my personal GitHub portfolio from the course template, with a clean first commit and a `.gitignore` that keeps databases and secrets out of Git.
+- Set up the entire toolchain reproducibly with uv (one fixed Python plus SQLite, DuckDB, Datasette and more) on Windows, macOS or Linux, and verify it.
+- Explain, with a measurement and not a slide, the difference between an embedded and a client/server database, and why most local apps should not run a server.
+- Load real rows into SQLite and query them from Python using bound parameters.
+- Take a first LLM-generated query, run it, and begin the habit that defines this course: verify before you trust.
+
+**What I plan to explore:** how SQLite stores and queries a large amount of data on my own laptop.
+
 ## Task Inspirations
 
-a small app that tracks something I care about and answers questions about it with SQL]
+- A small app that tracks something I care about and answers questions about it with SQL.
+- Inspiration 2: (add a second idea when you have one)
 
 ## Task Personal Profile
 
-zero experience about database
+- **Database experience:** none, this is my first time.
+- **Programming experience:** (add: e.g. none / Python basics)
+- **Command line / Git / GitHub:** (add: e.g. a little / new)
+- **Other skills:** (add your strengths)
 
-
-
-Domains and included areas:
-
--
--
-
-
-Commonly used (data) protocols:
-
--
--
-
-Typical devices (appliance or micro controller):
-
--
--
-
-Challenges:
-
--
--
+**What I want from this class:** to learn how to store data and get answers out of it with SQL, starting from zero.
 
 ## Reflection 1
-[Reflection 1](/Reflections/ref01.md)
+
+[Reflection 1](https://github.com/nassarrrrr/M.Nassar-HSBI-Database-Portofolio/blob/main/Reflections/ref01.md)
