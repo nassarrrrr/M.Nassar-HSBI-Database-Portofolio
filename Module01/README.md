@@ -14,14 +14,14 @@
 ## Task Inspirations
 
 - A small app that tracks something I care about and answers questions about it with SQL.
-- Inspiration 2: (add a second idea when you have one)
+
 
 ## Task Personal Profile
 
 - **Database experience:** none, this is my first time.
 - **Programming experience:** (add: e.g. none / Python basics)
 - **Command line / Git / GitHub:** (add: e.g. a little / new)
-- **Other skills:** (add your strengths)
+- **Other skills:** (80 kg bench press)
 
 **What I want from this class:** to learn how to store data and get answers out of it with SQL, starting from zero.
 
