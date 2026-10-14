@@ -26,8 +26,8 @@
 **What I want from this class:** to learn how to store data and get answers out of it with SQL, starting from zero.
 
 ## My partners are
-Mohamed Elsayed:https://github.com/mbahnasy426/Mohamed-Hamed
-Adam hassan:
+-Mohamed Elsayed:https://github.com/mbahnasy426/Mohamed-Hamed
+-Adam hassan:
 
 
 
