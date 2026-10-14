@@ -35,3 +35,5 @@
 ## Reflection 1
 
 [Reflection 1](https://github.com/nassarrrrr/M.Nassar-HSBI-Database-Portofolio/blob/main/Reflections/ref01.md)
+
+**Most useful dot-command:** `.schema`, because it shows exactly how a table was built without me having to remember it.
