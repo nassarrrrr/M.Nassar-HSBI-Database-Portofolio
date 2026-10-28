@@ -59,4 +59,13 @@ erDiagram
 **Proof of the m:n sketch:** [task-b-proof.sql](task-b-proof.sql), results in [task-b-proof-results.txt](task-b-proof-results.txt). Order 1 uses 2 parts, and part P-1002 is used by 2 orders.
 
 ## 7. Agreed learning (pod discussion)
-*(To be filled in after the pod session with [Mohamed Elsayed](https://github.com/mbahnasy426/Mohamed-Hamed) and [Adam](https://github.com/adamhsalman-droid/Adam.Salman-Portfolio).)*
+We exchanged study logs and sketches with the pod of Habiba Darwish ([portfolio](https://github.com/Habiba-AladdinDarwish/Darwish_Databases_C2026)).
+
+**Points we discussed:**
+1. **One-to-one (1:1):** one machine has exactly one nameplate. The key can go on either side with UNIQUE, or the nameplate can simply be attributes of the machine.
+2. **One-to-many (1:n):** one machine has many sensors. The foreign key goes on the "many" side (`sensor.machine_id`).
+3. **Many-to-many (m:n):** work orders use many parts, and a part is used in many orders. This needs a junction table whose key is both ids together. A comma-separated list instead breaks 1NF.
+
+**Open disagreement:** none noted.
+
+**Image shared in Discord:** not posted yet.

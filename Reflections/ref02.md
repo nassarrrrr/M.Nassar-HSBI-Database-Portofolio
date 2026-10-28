@@ -20,10 +20,10 @@
 - Seeing that one duplicate part made job 2 appear twice in a join.
 
 ## Interaction with peers and instructors
-The pod exchange (Task C) and the Discord post are still to be done with my pod in class.
+We did the pod exchange with Habiba Darwish's pod and compared our study logs and sketches. The shared Discord image is still to be posted.
 
 ## Help and extra work
 I used an AI assistant (Claude) to explain the concepts and guide me through the steps. I did not trust it blindly: every cardinality and defect is proven by a query result in audit-results.txt and task-b-proof-results.txt.
 
 ## Status
-Tasks 1, 2 and 3 of the studio lab are done, plus the study log and the Task B sketches with a COUNT proof. Task C (pod exchange) is still open.
+Tasks 1, 2 and 3 of the studio lab are done, plus the study log and the Task B sketches with a COUNT proof. Task C is done, except the shared Discord image.
