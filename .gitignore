@@ -6,3 +6,4 @@
 *.parquet
 .env
 __pycache__/
+Module01/telemetry.csv

@@ -1,0 +1,17 @@
+machine  avg_spindle_load
+-------  ----------------
+cnc-03   60.4340394499236
+cnc-01   60.3684539519378
+cnc-02   60.3572162800389
+QUERY PLAN
+|--SCAN readings
+|--USE TEMP B-TREE FOR GROUP BY
+`--USE TEMP B-TREE FOR ORDER BY
+first_time  last_time  rows_used
+----------  ---------  ---------
+18:00:03    23:59:57   43194    
+machine  avg_spindle_load  rows_used
+-------  ----------------  ---------
+cnc-02   60.2053090277778  28800    
+cnc-03   60.2024583333333  28800    
+cnc-01   60.1848645833333  28800    

@@ -1,0 +1,20 @@
+== Query results (Task 6) ==
+machine  n    
+-------  -----
+cnc-01   57600
+cnc-02   57600
+cnc-03   57600
+Run Time: real 0.163 user 0.099446 sys 0.033068
+machine  peak_vib
+-------  --------
+cnc-01   2.398   
+cnc-02   3.168   
+cnc-03   2.55    
+Run Time: real 0.073 user 0.065421 sys 0.007402
+alarms
+------
+11714 
+Run Time: real 0.014 user 0.010677 sys 0.003075
+
+== Database file size ==
+-rw-r--r--  1 mac  staff    10M Oct 28 19:40 Module01/telemetry.db
