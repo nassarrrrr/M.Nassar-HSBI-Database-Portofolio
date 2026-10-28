@@ -19,4 +19,4 @@ a question I write in SQL to get data out of the tables.
 **4. What surprised me, and what is still confusing?**
 Surprised: the game checks which columns I return, so SELECT * was wrong when
 it wanted one column. Also, NULL needs IS NULL, not =.
-Still confusing: (write what is unclear to you).
+Still confusing: why 'Stranger' and 'stranger' give different results (text inside quotes is case-sensitive), and why my DELETE said "too many or too few changes" when I ran it more than once.
