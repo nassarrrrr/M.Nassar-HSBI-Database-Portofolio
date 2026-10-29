@@ -1,0 +1,108 @@
+======================================================================
+SQLite version (Python): 3.53.1
+======================================================================
+
+TASK A: the acceptance test
+-- unconstrained table: t(sensor_id INTEGER, metric TEXT, value REAL)
+  stored: (1, 'integer', 'temp_c', 9000.0, 'real')
+  stored: (1, 'integer', 'temp_c', 'hot', 'text')
+  stored: (2, 'integer', 'bogus', -500.0, 'real')
+  stored: ('abc', 'text', 'temp_c', 20.0, 'real')
+  stored: (None, 'null', None, None, 'null')
+  stored: (1, 'integer', 'Temp_C', 20.0, 'real')
+  stored: (1, 'integer', 'temp_c', 20.0, 'real')
+  -> every junk row landed; nothing complained
+
+-- the same table with constraints, inserts one at a time
+  REJECTED  (1,'temp_c',9000)   impossible temperature
+            error: CHECK constraint failed: value BETWEEN -273.15 AND 5000
+            layer: domain (semantic) integrity: CHECK
+  REJECTED  (1,'temp_c','hot')  text in a REAL column
+            error: cannot store TEXT value in REAL column t2.value
+            layer: domain (semantic) integrity: STRICT type
+  REJECTED  (2,'bogus',-500)    unknown metric
+            error: CHECK constraint failed: metric IN ('temp_c','vib_rms','spindle_load')
+            layer: domain (semantic) integrity: CHECK
+  REJECTED  ('abc','temp_c',20) text in an INTEGER column
+            error: cannot store TEXT value in INTEGER column t2.sensor_id
+            layer: domain (semantic) integrity: STRICT type
+  REJECTED  (NULL,'temp_c',20)  missing sensor
+            error: NOT NULL constraint failed: t2.sensor_id
+            layer: entity integrity
+  REJECTED  (1,'Temp_C',20)     wrong upper/lower case
+            error: CHECK constraint failed: metric IN ('temp_c','vib_rms','spindle_load')
+            layer: domain (semantic) integrity: CHECK
+  ACCEPTED  (1,'temp_c',NULL)   missing value: does CHECK stop NULL?
+  ACCEPTED  (1,'temp_c','20')   the number 20 written as text
+  ACCEPTED  (1,'temp_c',4999)   plausible type, wrong value
+  stored in t2: (1, 'temp_c', None, 'null')
+  stored in t2: (1, 'temp_c', 20.0, 'real')
+  stored in t2: (1, 'temp_c', 4999.0, 'real')
+
+======================================================================
+SETUP: Module04/edge.db from setup.sql
+======================================================================
+  tables: reading, sensor
+
+======================================================================
+TASK 1: prove the constraints work
+======================================================================
+  ACCEPTED  valid: two sensors
+  ACCEPTED  valid: reading 41.5
+  REJECTED  impossible temperature 9000
+            error: CHECK constraint failed: value >= -273.15 AND value <= 5000
+            layer: domain (semantic) integrity: CHECK
+  REJECTED  text 'hot' into a REAL column
+            error: cannot store TEXT value in REAL column reading.value
+            layer: domain (semantic) integrity: STRICT type
+  REJECTED  sensor 99 does not exist
+            error: FOREIGN KEY constraint failed
+            layer: referential integrity
+  REJECTED  duplicate sensor for cnc-01 + temp_c
+            error: UNIQUE constraint failed: sensor.machine_id, sensor.metric
+            layer: entity integrity
+  REJECTED  interval_s = 0
+            error: CHECK constraint failed: interval_s > 0
+            layer: domain (semantic) integrity: CHECK
+
+  generated column: reading 1: value 41.5 x interval_s 1 = energy_j 41.5
+
+-- why PRAGMA foreign_keys matters: the same orphan insert on a connection WITHOUT it
+  ACCEPTED: the orphan reading for sensor 99 got in (rolled back again)
+
+======================================================================
+TASK 2: idempotent ingestion with UPSERT
+======================================================================
+  (1, '2026-03-01 08:00:00', 41.7)
+  -> still exactly one row for that key; the value was corrected 41.5 -> 41.7
+
+-- ingest.py run twice on the same CSV (10 rows)
+  run 1: ingested 10 rows from readings.csv; reading table now has 11 rows 
+  run 2: ingested 10 rows from readings.csv; reading table now has 11 rows 
+  -> 11 rows in total (1 from Task 1 + 10 from the CSV), duplicate keys: 0
+
+======================================================================
+TASK 3: triggers for alarms and audit
+======================================================================
+-- alarm table (after inserting vibration 2.7)
+  (1, 2, '2026-03-01 09:00:00', 2.7, 'vibration over 2.0 mm/s')
+-- audit table (after updating the value to 1.4)
+  (1, 12, 2.7, 1.4, '2026-10-29 15:33:04')
+
+-- trigger cost: insert 10,000 vibration readings, median of 3 runs
+  without alarm trigger: median 11.7 ms (runs: 12.6, 11.7, 10.9), alarms raised: 0
+  with    alarm trigger: median 29.6 ms (runs: 30.6, 29.6, 29.0), alarms raised: 2664
+  -> the trigger adds about 17.9 ms per 10,000 rows (2.53x)
+
+======================================================================
+TASK 4: access control without a server
+======================================================================
+-- the machine_health view (a safe subset for report readers)
+  ('cnc-01', 'temp_c', 42.3, 11)
+  ('cnc-01', 'vib_rms', 1.4, 1)
+
+-- chmod 444 Module04/edge.db  ->  -r--r--r--
+  mode=ro  SELECT COUNT(*) FROM reading  ->  12
+  mode=ro  DELETE FROM reading  ->  REJECTED: attempt to write a readonly database
+  normal connection on the 444 file, DELETE  ->  REJECTED: attempt to write a readonly database
+-- chmod 644 Module04/edge.db  ->  -rw-r--r-- (write access restored)
