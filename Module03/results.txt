@@ -45,14 +45,26 @@ TASK 1: the dashboard query (reference version from the module)
     USE TEMP B-TREE FOR count(DISTINCT)
     USE TEMP B-TREE FOR ORDER BY
 
-(no Module03/llm_query.sql yet: paste the LLM's SQL there and run again)
+-- the LLM's query (Module03/llm_query.sql)
+  ('Bielefeld', 500, 11242176.0)
+  ('Gütersloh', 500, 8422344.0)
+  ('Münster', 500, 5493504.0)
+  ('Paderborn', 500, 2815656.0)
+-- plan
+    SCAN ol
+    SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
 
 ======================================================================
 TASK 2: index benchmark (median of 3 runs; single-day query batched x200)
 ======================================================================
 
 ## baseline (no extra index)
-dashboard: median 125.9 ms  (runs: 125.3, 128.5, 125.9)
+dashboard: median 130.4 ms  (runs: 128.0, 137.1, 130.4)
     SCAN ol
     SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
     SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
@@ -60,12 +72,12 @@ dashboard: median 125.9 ms  (runs: 125.3, 128.5, 125.9)
     USE TEMP B-TREE FOR GROUP BY
     USE TEMP B-TREE FOR count(DISTINCT)
     USE TEMP B-TREE FOR ORDER BY
-single-day lookup: median 2.631 ms
+single-day lookup: median 2.895 ms
     SCAN o
     SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
 
 ## + ix_orders_ordered_on
-dashboard: median 127.5 ms  (runs: 126.7, 128.8, 127.5)
+dashboard: median 127.4 ms  (runs: 130.1, 127.4, 127.4)
     SCAN ol
     SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
     SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
@@ -73,12 +85,25 @@ dashboard: median 127.5 ms  (runs: 126.7, 128.8, 127.5)
     USE TEMP B-TREE FOR GROUP BY
     USE TEMP B-TREE FOR count(DISTINCT)
     USE TEMP B-TREE FOR ORDER BY
-single-day lookup: median 0.158 ms
+single-day lookup: median 0.152 ms
     SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
     SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
 
 ## + ix_orderline_order
-dashboard: median 602.1 ms  (runs: 631.7, 586.6, 602.1)
+dashboard: median 655.2 ms  (runs: 625.2, 655.2, 756.4)
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on>? AND ordered_on<?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH ol USING INDEX ix_orderline_order (order_id=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
+single-day lookup: median 0.208 ms
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+
+## + ix_orderline_product
+dashboard: median 607.0 ms  (runs: 726.0, 607.0, 598.6)
     SEARCH o USING INDEX ix_orders_ordered_on (ordered_on>? AND ordered_on<?)
     SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
     SEARCH ol USING INDEX ix_orderline_order (order_id=?)
@@ -90,25 +115,12 @@ single-day lookup: median 0.155 ms
     SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
     SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
 
-## + ix_orderline_product
-dashboard: median 643.3 ms  (runs: 741.0, 643.3, 612.1)
-    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on>? AND ordered_on<?)
-    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
-    SEARCH ol USING INDEX ix_orderline_order (order_id=?)
-    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
-    USE TEMP B-TREE FOR GROUP BY
-    USE TEMP B-TREE FOR count(DISTINCT)
-    USE TEMP B-TREE FOR ORDER BY
-single-day lookup: median 0.189 ms
-    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
-    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
-
 -- summary table (ms, median of 3)
 step                          dashboard  single-day
-baseline (no extra index)         125.9       2.631
-+ ix_orders_ordered_on            127.5       0.158
-+ ix_orderline_order              602.1       0.155
-+ ix_orderline_product            643.3       0.189
+baseline (no extra index)         130.4       2.895
++ ix_orders_ordered_on            127.4       0.152
++ ix_orderline_order              655.2       0.208
++ ix_orderline_product            607.0       0.155
 
 -- negative result 1: a function around the column defeats the index
   date(o.ordered_on) = '2026-02-14'
