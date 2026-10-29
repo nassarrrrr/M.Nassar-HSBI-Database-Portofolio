@@ -1,0 +1,129 @@
+======================================================================
+SQLite version (Python): 3.53.1
+======================================================================
+customer    rows: 2000
+product     rows: 500
+orders      rows: 60000
+order_line  rows: 240000
+
+======================================================================
+TASK A: plan safari on Module02/legacy.db (copy in memory, original untouched)
+======================================================================
+-- before the index
+  SELECT * FROM maint_job WHERE technician = 'Beier'
+    SCAN maint_job
+  SELECT * FROM machine WHERE machine_name = 'cnc-02'
+    SCAN machine
+  SELECT * FROM maint_job WHERE technician LIKE '%ei%'
+    SCAN maint_job
+-- after CREATE INDEX ix_job_tech ON maint_job(technician)
+  SELECT * FROM maint_job WHERE technician = 'Beier'
+    SEARCH maint_job USING INDEX ix_job_tech (technician=?)
+  SELECT * FROM machine WHERE machine_name = 'cnc-02'
+    SCAN machine
+  SELECT * FROM maint_job WHERE technician LIKE '%ei%'
+    SCAN maint_job
+-- trying to defeat the index on purpose
+  SELECT * FROM maint_job WHERE lower(technician) = 'beier'
+    SCAN maint_job
+  SELECT * FROM maint_job WHERE technician LIKE 'Bei%'
+    SCAN maint_job
+
+======================================================================
+TASK 1: the dashboard query (reference version from the module)
+======================================================================
+  ('Bielefeld', 500, 11242176.0)
+  ('Gütersloh', 500, 8422344.0)
+  ('Münster', 500, 5493504.0)
+  ('Paderborn', 500, 2815656.0)
+-- plan
+    SCAN ol
+    SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
+
+(no Module03/llm_query.sql yet: paste the LLM's SQL there and run again)
+
+======================================================================
+TASK 2: index benchmark (median of 3 runs; single-day query batched x200)
+======================================================================
+
+## baseline (no extra index)
+dashboard: median 125.9 ms  (runs: 125.3, 128.5, 125.9)
+    SCAN ol
+    SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
+single-day lookup: median 2.631 ms
+    SCAN o
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+
+## + ix_orders_ordered_on
+dashboard: median 127.5 ms  (runs: 126.7, 128.8, 127.5)
+    SCAN ol
+    SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
+single-day lookup: median 0.158 ms
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+
+## + ix_orderline_order
+dashboard: median 602.1 ms  (runs: 631.7, 586.6, 602.1)
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on>? AND ordered_on<?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH ol USING INDEX ix_orderline_order (order_id=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
+single-day lookup: median 0.155 ms
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+
+## + ix_orderline_product
+dashboard: median 643.3 ms  (runs: 741.0, 643.3, 612.1)
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on>? AND ordered_on<?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH ol USING INDEX ix_orderline_order (order_id=?)
+    SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+    USE TEMP B-TREE FOR GROUP BY
+    USE TEMP B-TREE FOR count(DISTINCT)
+    USE TEMP B-TREE FOR ORDER BY
+single-day lookup: median 0.189 ms
+    SEARCH o USING INDEX ix_orders_ordered_on (ordered_on=?)
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+
+-- summary table (ms, median of 3)
+step                          dashboard  single-day
+baseline (no extra index)         125.9       2.631
++ ix_orders_ordered_on            127.5       0.158
++ ix_orderline_order              602.1       0.155
++ ix_orderline_product            643.3       0.189
+
+-- negative result 1: a function around the column defeats the index
+  date(o.ordered_on) = '2026-02-14'
+    SCAN o
+    SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+
+-- ix_orderline_product IS used when a query filters on product_id directly
+  SELECT COUNT(*) FROM order_line WHERE product_id = 42
+    SEARCH order_line USING COVERING INDEX ix_orderline_product (product_id=?)
+
+======================================================================
+TASK 3: injection drill (Module03/injection_demo.py)
+======================================================================
+normal   : [(1, 'Customer 1')]
+injected : [(1, 'Customer 1'), (2, 'Customer 2'), (3, 'Customer 3')] ...
+safe     : []
+apostrophe (vulnerable): crashed with near "Brien": syntax error
+apostrophe (safe)      : []
