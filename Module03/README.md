@@ -47,15 +47,15 @@ Surprise: SQLite starts from `order_line` (the biggest table, 240,000 rows), not
 ## Task 2: index benchmark (median of 3 runs)
 | Step | Dashboard (ms) | Plan changed? | Single-day lookup (ms) |
 |---|---|---|---|
-| No extra index | 125.9 | `SCAN ol` | 2.631 (`SCAN o`) |
-| + `ix_orders_ordered_on` | 127.5 | **No**, still `SCAN ol` | **0.158** (`SEARCH o USING INDEX ix_orders_ordered_on`) |
-| + `ix_orderline_order` | **602.1** | **Yes**: now starts from `SEARCH o USING INDEX` and looks up `ol` by index | 0.155 |
-| + `ix_orderline_product` | 643.3 | No | 0.189 |
+| No extra index | 130.4 | `SCAN ol` | 2.895 (`SCAN o`) |
+| + `ix_orders_ordered_on` | 127.4 | **No**, still `SCAN ol` | **0.152** (`SEARCH o USING INDEX ix_orders_ordered_on`) |
+| + `ix_orderline_order` | **655.2** | **Yes**: now starts from `SEARCH o USING INDEX` and looks up `ol` by index | 0.208 |
+| + `ix_orderline_product` | 607.0 | No | 0.155 |
 
 The single-day lookup is batched 200 times per run, because one run is below the ~1 ms timer floor.
 
 **What this shows:**
-- **The index wins on the single-day lookup:** about 17× faster, and the plan changed from `SCAN o` to `SEARCH o USING INDEX`.
+- **The index wins on the single-day lookup:** about 19× faster, and the plan changed from `SCAN o` to `SEARCH o USING INDEX`.
 - **The indexes made the dashboard about 5× slower.** The dashboard needs about two thirds of all orders (40,575 of 60,000 are in 2025). With `ix_orderline_order`, the planner switches to an index-driven join: one index lookup per order instead of one straight pass over `order_line`. An index changes the plan; it does not guarantee a speedup.
 - **`ix_orders_ordered_on` alone does not change the dashboard plan.** A filter that keeps most rows is not selective enough to be worth an index.
 - **`ix_orderline_product` is useless *for this query*,** because `product` is reached through its primary key. But `SELECT COUNT(*) FROM order_line WHERE product_id = 42` uses it, even as a `COVERING INDEX`. So it is "useless for this query", not "useless".

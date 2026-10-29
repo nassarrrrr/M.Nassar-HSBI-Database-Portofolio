@@ -2,7 +2,7 @@
 
 ## Take-away: what do I want to remember?
 - `EXPLAIN QUERY PLAN` shows *what* the database does; a stopwatch only shows *how long*. `SCAN` means every row is read; `SEARCH ... USING INDEX` means the index found the rows.
-- An index is not automatically faster. It made the single-day lookup about 17× faster, but it made the dashboard about 5× slower, because the dashboard needs most of the rows anyway.
+- An index is not automatically faster. It made the single-day lookup about 19× faster, but it made the dashboard about 5× slower, because the dashboard needs most of the rows anyway.
 - A function around a column (`date(ordered_on)`, `lower(technician)`) or a leading wildcard (`LIKE '%ei%'`) stops the index from being used.
 - Never build SQL by gluing text together. Bound parameters (`?`) are the only real fix for injection.
 

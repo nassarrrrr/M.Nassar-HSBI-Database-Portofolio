@@ -38,7 +38,7 @@ My algebra for `SELECT * FROM maint_job WHERE technician = 'Beier'`:
 **LLM comparison (Claude):** it gave the same expression. For the dashboard query (see the [README, Task 4](README.md#task-4-one-query-from-algebra-to-plan)), the interesting difference is `ORDER BY` and `COUNT(DISTINCT)`: classic relational algebra has no sorting, so `ORDER BY` sits outside the expression.
 
 ## 6. Remarkable things and curiosities
-- **An index made a query 5× slower** (dashboard: 125.9 ms → 602.1 ms). The plan changed, but for the worse. Source: [README, Task 2](README.md#task-2-index-benchmark-median-of-3-runs).
+- **An index made a query 5× slower** (dashboard: 130.4 ms → 655.2 ms). The plan changed, but for the worse. Source: [README, Task 2](README.md#task-2-index-benchmark-median-of-3-runs).
 - **The biggest table is scanned first:** the dashboard plan starts with `SCAN ol` (240,000 rows), not with `orders`.
 - **Same customers, very different revenue:** every city has exactly 500 customers, but Bielefeld earns 4× more than Paderborn. The generated ids line up (`x % 2000`, `x % 500`), so some cities always get the expensive products. Generated data has patterns that real data would not.
 - **Setup question 4:** `date('2025-01-01', '+' || (x % 540) || ' days')`. The modifier must be a text like `'+42 days'`, so it is built with `||`. When x = 540, `x % 540` = 0, so the date is 2025-01-01 again. The latest date is 2026-06-24.
