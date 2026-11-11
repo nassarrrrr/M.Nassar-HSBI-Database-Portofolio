@@ -1,0 +1,94 @@
+======================================================================
+SQLite version (Python): 3.53.1
+======================================================================
+
+ROUND 2: break it (the five-row flat5 table)
+-- update anomaly: UPDATE flat5 SET site='Bielefeld' WHERE machine_id='cnc-01'
+   rows touched: 3 (one fact, stored 3 times)
+   a second session that only edits job 1 (WHERE ... AND job_id = 1) touches 2 rows, and then:
+     ('cnc-01', 'Bielefeld')
+     ('cnc-01', 'Gütersloh')
+   -> cnc-01 is now in two cities at once: the copies disagree
+
+-- insert anomaly: INSERT INTO flat5(part_no, part_price) VALUES ('P-0004', 9.00)
+   stored: (None, None, None, None, 'P-0004', 9.0)
+   -> the only way to record a new part is a 'job' row with no job, machine or technician
+
+-- delete anomaly: DELETE FROM flat5 WHERE job_id = 1   (2 rows)
+   price of P-0002 afterwards: []
+   -> job 1 was the only job that used P-0002, so the fact 'P-0002 costs 7.00' vanished with it
+
+======================================================================
+ROUND 3: build it (Module05/normalize.db)
+======================================================================
+flat_jobpart built in 0.4 s
+  flat_jobpart  rows: 200000
+  machine       rows: 50
+  part          rows: 10
+  job           rows: 20000
+  job_part      rows: 200000
+  integrity check: flat_rows = 200000, normalized_rows = 200000  ->  MATCH
+  part numbers used: P-0002, P-0003, P-0004, P-0005, P-0006, P-0007, P-0008, P-0009, P-0010, P-0011
+  -> only 10 parts: k runs 1..10, so (k % 40) + 1 gives P-0002 .. P-0011 and never reaches 40
+  joining the 3NF tables back together gives 200000 rows (lossless)
+
+-- the same decomposition with PRAGMA foreign_keys = ON (in-memory copy)
+  loaded fine: job_part rows = 200000, foreign_key_check problems = 0
+
+======================================================================
+ROUND 4: race it (normalized A vs denormalized B)
+======================================================================
+report_jobpart rows: 200000
+one example row: (1, 'cnc-02', 'Gütersloh', 'tech-1', 'P-0002', 6.0, '2026-01-02')
+same answer? A returns 350 rows, B returns 350 rows, identical: True, total cost 722,610.0
+
+-- plan A (normalized)
+    SCAN jp
+    SEARCH j USING INTEGER PRIMARY KEY (rowid=?)
+    SEARCH m USING INDEX sqlite_autoindex_machine_1 (machine_id=?)
+    SEARCH p USING INDEX sqlite_autoindex_part_1 (part_no=?)
+    USE TEMP B-TREE FOR GROUP BY
+-- plan B (denormalized, with ix_report_machine)
+    SCAN report_jobpart USING INDEX ix_report_machine
+    USE TEMP B-TREE FOR GROUP BY
+
+A normalized   : median 88.2 ms (runs: 89.6, 87.5, 88.2)
+B denormalized : median 90.2 ms (runs: 90.1, 90.2, 93.5)
+
+-- optional try: make the join hurt (two more dimensions, in-memory copy)
+  check: 3500 rows, total 722,610.0 (module expects 3,500 rows and 722,610.0)
+  A six-way join  : median 171.5 ms (runs: 151.4, 174.1, 171.5)
+  B one wide table: median 127.9 ms (runs: 118.0, 142.3, 127.9)
+
+======================================================================
+ROUND 5: price it (writes, storage, the index experiment)
+======================================================================
+-- dashboard B without ix_report_machine
+    SCAN report_jobpart
+    USE TEMP B-TREE FOR GROUP BY
+B without index: median 64.0 ms (runs: 65.6, 63.0, 64.0)   (with index: median 90.2 ms)
+
+-- storage (dbstat)
+  normalized (job + job_part + part + machine): 4,071,424 bytes = 3,976 KB
+  denormalized (report_jobpart)               : 11,091,968 bytes = 10,832 KB
+  plus ix_report_machine                      : 2,990,080 bytes = 2,920 KB
+
+-- change one machine's site (cnc-02 -> Bielefeld)
+  3NF    : UPDATE machine        -> 1 row,  0.330 ms
+  report : UPDATE report_jobpart -> 4000 rows, 13.242 ms
+
+-- summary table
+design                    dashboard (ms)  rows per site update  storage (KB)
+normalized (3NF)                    88.2                     1         3,976
+denormalized (report)               90.2                  4000        10,832
+
+======================================================================
+STRETCHER: the same dashboard in DuckDB (columnar engine)
+======================================================================
+note: DuckDB rejects the SQLite query as written: 'column "site" must appear in the GROUP BY
+clause'. SQLite silently allows a bare column that is not grouped; DuckDB (and standard SQL) do not.
+So for DuckDB, site is added to GROUP BY (it is the same value per machine anyway).
+DuckDB 1.5.6: A returns 350 rows, same answer as SQLite: True
+  A normalized   : median 27.6 ms (runs: 20.5, 27.6, 30.7)
+  B denormalized : median 16.1 ms (runs: 15.9, 16.1, 32.1)
+  (SQLite        : A 88.2 ms, B 90.2 ms)
