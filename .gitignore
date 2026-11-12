@@ -8,3 +8,4 @@
 __pycache__/
 Module01/telemetry.csv
 Module06a/*.csv
+Module06b/sessions*
