@@ -1,0 +1,57 @@
+========================================================================
+SQLite 3.53.1 | Python 3.14.8
+========================================================================
+
+BENCH 1: metadata that will not sit still (JSON in SQLite)
+
+$ uv run python Module06b/json_bench.py
+-- a path behaves like a column
+('cnc-01', 'Siemens')
+('cnc-02', 'Fanuc')
+('molder-07', 'Arburg')
+-- the ->> shorthand returns a scalar
+('cnc-01', '4.2')
+('cnc-02', '3.9')
+('molder-07', '8.1')
+-- an object becomes rows
+('cnc-01', 'vendor', 'Siemens')
+('cnc-01', 'firmware', '4.2')
+('cnc-01', 'calibrated', '2026-01-10')
+-- index the path you filter on, then prove it
+[(3, 0, 61, 'SEARCH device USING INDEX ix_device_vendor (<expr>=?)')]
+-- now break it: the shorthand is a different expression
+[(2, 0, 216, 'SCAN device')]
+
+-- extra: CHECK (json_valid(meta)) rejects text that is not JSON
+  REJECTED: CHECK constraint failed: json_valid(meta)
+
+-- extra: a vendor adds a brand-new field, with no migration
+  ('cnc-01', None)
+  ('cnc-02', None)
+  ('molder-07', None)
+  ('cnc-04', 12000)
+  -> the new key is queryable at once; older devices just return NULL
+
+-- extra: which spellings of the same filter use ix_device_vendor?
+  json_extract(meta, '$.vendor')   -> 1 row(s), plan: SEARCH device USING INDEX ix_device_vendor (<expr>=?)
+  meta ->> '$.vendor'              -> 1 row(s), plan: SCAN device
+  meta ->> 'vendor'                -> 1 row(s), plan: SCAN device
+  after indexing the ->> expression itself      -> plan: SEARCH device USING INDEX ix_device_vendor_arrow (<expr>=?)
+
+BENCH 2: session state (key-value vs SQLite)
+
+$ uv run python Module06b/kv_compare.py
+shelve  set=  13.874s get=   0.597s
+sqlite  set=   0.138s get=   0.796s
+
+-- extra: which backend did shelve use on this machine? dbm.whichdb -> 'dbm.sqlite3'
+  -> on Python 3.13+ the default dbm backend IS SQLite: shelve stores its keys in a
+     SQLite table and commits every single assignment, which is why its writes are slow.
+
+-- extra: a question across sessions: how many sessions per city filter?
+  ('city:0', 12500, 25)
+  ('city:1', 12500, 25)
+  ('city:2', 12500, 25)
+  ('city:3', 12500, 25)
+  SQLite: one GROUP BY query, 55.8 ms
+  shelve: no query language; a Python loop over all keys gives {'filter=city:0': 12500, 'filter=city:1': 12500, 'filter=city:2': 12500, 'filter=city:3': 12500} in 504.0 ms
