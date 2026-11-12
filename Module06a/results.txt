@@ -1,0 +1,161 @@
+========================================================================
+SQLite 3.53.1 | DuckDB 1.5.6 | Python 3.14.8
+========================================================================
+
+ROUND 1: build the history
+
+$ uv run python Module06a/prepare.py
+history rows: 2000000
+csv bytes   : 10801002
+(exit status 0)
+
+ROUND 2: convert to Parquet (and check both sides agree)
+
+$ uv run python Module06a/to_parquet.py
+parquet rows: 2000000
+parquet MB  : 2.4
+sum parquet : 21000000.0
+sum sqlite  : 21000000.0
+identical   : True
+sqlite MB   : 112.65
+(exit status 0)
+
+ROUND 3: the race, exactly as the module wrote it
+
+$ uv run python Module06a/race.py
+dashboard  sqlite  2540.0 ms [2226.0-3141.3]   duckdb   29.1 ms [23.8-59.0]     87.3x
+monthly    sqlite  1734.0 ms [1709.0-2155.8]   duckdb   23.8 ms [23.7-26.8]     72.8x
+(exit status 0)
+
+-- same answer? (checked before trusting any timing)
+  dashboard: sqlite 350 rows, duckdb 350 rows, identical: True
+  monthly as written: sqlite 50 rows, first (None, 'cnc-01', 40000, 420000.0) | duckdb 1500 rows, first ('2026-01', 'cnc-01', 1780, 18690.0)
+  -> NOT the same answer. SQLite's strftime takes (format, date); DuckDB's takes (date, format).
+     In SQLite, strftime(done_on, '%Y-%m') returns NULL, so every month collapses into one NULL group.
+  monthly fixed for SQLite, strftime('%Y-%m', done_on): 1500 rows, identical to DuckDB: True
+  duckdb with date_trunc: 1500 rows, first (datetime.datetime(2026, 1, 1, 0, 0), 'cnc-01', 1780, 18690.0); same jobs and cost as strftime: True (the month is a DATE now, not the text 'YYYY-MM')
+
+-- the fair race (same answer on both sides), median of 5, interleaved
+  dashboard                    sqlite   2507.6 ms [2297.0-2691.0]   duckdb    29.5 ms [23.8-33.7]     85.11x
+  monthly (correct per engine) sqlite   2606.7 ms [2586.0-2712.8]   duckdb    25.6 ms [23.8-27.5]    101.67x
+  monthly, duckdb date_trunc   sqlite   2770.7 ms [2661.1-3073.6]   duckdb    47.6 ms [47.2-53.0]     58.22x
+
+-- what would make SQLite win? a point query on an index
+  answer: sqlite (2220, 23310.0) | duckdb (2220, 23310.0)
+  one day, no index            sqlite    155.3 ms [148.8-159.9]   duckdb     4.1 ms [3.9-5.1]     37.92x
+  one day, sqlite with index   sqlite      1.9 ms [1.8-2.0]   duckdb     4.0 ms [3.8-4.2]      0.48x
+  sqlite plan: SEARCH report_history USING INDEX ix_hist_done_on (done_on=?)
+
+ROUND 4: the plans
+-- SQLite (a prediction, no timings)
+    SCAN report_history
+    USE TEMP B-TREE FOR GROUP BY
+-- DuckDB EXPLAIN ANALYZE (a measurement: it runs the query)
+
+$ uv run python Module06a/plan.py
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+     EXPLAIN ANALYZE     SELECT machine_id, site, technician, SUM(part_price) AS cost     FROM read_parquet('/Users/mac/M.Nassar-HSBI-Database-Portofolio/Module06a/report_history.parquet')     GROUP BY machine_id, site, technician 
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0562s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│                           │
+│           0 rows          │
+│           0.00s           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│                           │
+│    Aggregates: sum(#3)    │
+│                           │
+│                           │
+│                           │
+│          350 rows         │
+│           0.12s           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         machine_id        │
+│            site           │
+│         technician        │
+│         part_price        │
+│                           │
+│                           │
+│                           │
+│       2,000,000 rows      │
+│           0.00s           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         TABLE_SCAN        │
+│    ────────────────────   │
+│         Function:         │
+│        READ_PARQUET       │
+│                           │
+│        Projections:       │
+│         machine_id        │
+│            site           │
+│         technician        │
+│         part_price        │
+│                           │
+│    Total Files Read: 1    │
+│                           │
+│        Filename(s):       │
+│  /Users/mac/M.Nassar-HSBI │
+│    -Database-Portofolio   │
+│ /Module06a/report_history │
+│          .parquet         │
+│                           │
+│                           │
+│                           │
+│       2,000,000 rows      │
+│           0.04s           │
+└───────────────────────────┘
+(exit status 0)
+-- SELECT * instead: which columns does the scan read now?
+│        Projections:       │
+│           job_id          │
+│          part_no          │
+│          done_on          │
+
+ROUND 5: the boundary (1,000 single-row statements)
+
+$ uv run python Module06a/boundary.py
+inserts sqlite      3.6 ms | duckdb   1085.6 ms | duckdb executemany    744.8 ms
+lookups sqlite      2.1 ms | duckdb    518.4 ms
+(exit status 0)
+
+HOMEWORK (core): zstd compression
+  dashboard snappy vs zstd     sqlite     29.6 ms [29.2-31.9]   duckdb    30.3 ms [29.7-35.1]      0.98x
+  (in this line, the 'sqlite' column is the snappy file and the 'duckdb' column is the zstd file)
+  sizes: snappy 2.40 MB, zstd 1.39 MB, history.db 112.65 MB
+
+HOMEWORK (intense track): refresh.py, run twice with --check
+
+$ uv run python Module06a/refresh.py --check
+rows=2000000 checksum=21000000.0 parquet_bytes=2460682 elapsed_ms=8229
+check: sqlite rows=2000000 sum=21000000.0 | parquet rows=2000000 sum=21000000.0
+check: OK
+(exit status 0)
+
+$ uv run python Module06a/refresh.py --check
+rows=2000000 checksum=21000000.0 parquet_bytes=2460682 elapsed_ms=8257
+check: sqlite rows=2000000 sum=21000000.0 | parquet rows=2000000 sum=21000000.0
+check: OK
+(exit status 0)
